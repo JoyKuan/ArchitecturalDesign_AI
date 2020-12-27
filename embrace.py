@@ -1,9 +1,10 @@
-# Note: Embrace folder name has space which be deleted by hand
+# Check first: name of Embrace folder has space which should be deleted by hand
 
 import os
 import pandas as pd
 from datetime import datetime, timedelta
 
+# LA Time Zone
 originalTimeZone = "UTC"
 targetTimeZone = "America/Los_Angeles"
 
@@ -13,11 +14,14 @@ def main():
     embrace_dirs = os.listdir(embrace_path)
     embrace_csv_paths = list()
 
+    # There are three embrace folders
     for emdir in embrace_dirs:
         print("Folder:", emdir)
+
+        # Read 'UPLOAD_STATUS.txt' to get its 3-level hierarchy relationships (also are different names of each level of folder)
         status_path = os.path.join(embrace_path, emdir, 'UPLOAD_STATUS.txt')
 
-        # Replace ', ' to ',' in the txt file and overwrite it
+        # Replace ', ' to ',' in 'UPLOAD_STATUS.txt' and overwrite it
         lines = open(status_path).readlines()
         fp = open(status_path, 'w')
         for s in lines:
@@ -26,6 +30,7 @@ def main():
 
         df = pd.read_csv(status_path)
 
+        # get whole complete paths based on its hierarchy from 'UPLOAD_STATUS.txt'
         # %03d : 01 --> 010
         if len(list(df['STUDY'])) == 1:
             csv_path = os.path.join(embrace_path, emdir, str('%03d' % int(df.loc[0, 'STUDY'])),
@@ -117,6 +122,7 @@ def collect_each_person(personInfo, embrace_df, kind):
         test_end_time = str(end_date_time_obj).split(' ')[1]
 
         # Compare date and time between embrace and garmin
+        # < test_end_time : per second to be unit of record, so about 14:10 (garmin), we get data (less than 14:11)
         for i in range(len(embrace_df['time'])):
             if str(embrace_df['time'][i]).split(' ')[0] == date:
                 if test_start_time <= str(embrace_df['time'][i]).split(' ')[1] < test_end_time:
@@ -126,6 +132,7 @@ def collect_each_person(personInfo, embrace_df, kind):
         person[kind] = skin_values
         person_df = pd.DataFrame.from_dict(person)
 
+        # write temp and eda csv files
         if kind == 'skin_temp':
             writeEmbrace_name = id + '_temp.csv'
         elif kind == 'eda':

@@ -1,6 +1,6 @@
 # Step1 : Delete all .DS_store iteratively for each subfolder: https://jonbellah.com/articles/recursively-remove-ds-store/
-# find . -name '.DS_Store' -type f -delete
-# FitSDK: java -jar ./java/FitCSVTool.jar 74185739562_WELLNESS.fit
+# Command line: find . -name '.DS_Store' -type f -delete
+# Execute FitSDK: java -jar ./java/FitCSVTool.jar 74185739562_WELLNESS.fit
 
 # !/usr/bin/python
 # -*- coding: utf-8 -*-
@@ -15,6 +15,7 @@ import pandas as pd
 folders = ['01-09-TR1', '10-20-TR2', '21-30-TR3']
 person = dict()
 
+# LA Time Zone
 OUTPUT_TIMEZONE = pytz.timezone('US/Pacific')
 INPUT_TIMEZONE = pytz.UTC
 
@@ -26,16 +27,16 @@ def main():
     for folder in folders:
         # returns a list containing the names of the entries in the directory given by path
         path = os.path.join(os.getcwd(), 'Data Collection', folder)
-        person_dirs = os.listdir(path)  # dirs --> ['04-112520-245pm-JJ Kim']
+        person_dirs = os.listdir(path)                                    # dirs --> ['04-112520-245pm-JJ Kim']
 
         for psdir in person_dirs:
             person = dict()
-            person[psdir.split('-')[-1]] = psdir.split('-')[0:3]  # print person --> {'Hannah Flynn': ['08', '112720', '124pm']}
+            person[psdir.split('-')[-1]] = psdir.split('-')[0:3]          # person --> {'Hannah Flynn': ['08', '112720', '124pm']}
 
             # Obtain .fit files
             garmincon_path = os.path.join(path, psdir, "Garmin Connect")  # garmincon_path --> ./Garmin Connect
-            dirs = os.listdir(garmincon_path)  # print dirs_temp --> ['2020-11-27-124pm']
-            garmin_folder_path = os.path.join(garmincon_path, dirs[0])  # only one dir in dirs --> dirs[0]
+            dirs = os.listdir(garmincon_path)                             # dirs_temp --> ['2020-11-27-124pm']
+            garmin_folder_path = os.path.join(garmincon_path, dirs[0])    # only one dir in dirs --> dirs[0]
             fitfiles = os.listdir(garmin_folder_path)
             fitfiles_wellness = [file for file in fitfiles if file[-13:].lower() == '_wellness.fit']
 
@@ -60,7 +61,7 @@ def write_fitfile_to_csv(fitfile, output_folder, output_file):
         print('wrong input')
         sys.exit(1)
     else:
-        timestamp = (messages[0].fields[1].value - datetime.datetime(1989, 12, 31, 0, 0)).total_seconds()
+        timestamp = (messages[0].fields[1].value - datetime.datetime(1989, 12, 31, 0, 0)).total_seconds()  # 1989/12/31 is the special date of garmin
 
     data = []
     for m in messages:
@@ -86,6 +87,7 @@ def write_fitfile_to_csv(fitfile, output_folder, output_file):
                     if field.name == 'timestamp_16':
                         last_timestamp_16 = field.value
 
+                        # convert timestamp_16 to datetime format
                         timestamp_16 = ((int(timestamp) & 0xffff0000) | last_timestamp_16)
                         if timestamp_16 < (int(timestamp)):
                             timestamp_16 += 0x10000
