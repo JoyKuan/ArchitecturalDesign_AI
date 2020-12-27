@@ -2,19 +2,13 @@
 
 import os
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 
 originalTimeZone = "UTC"
 targetTimeZone = "America/Los_Angeles"
 
-temp_all = pd.DataFrame(columns=['time', 'skin_temp'])
-eda_all = pd.DataFrame(columns=['time', 'eda'])
-
 
 def main():
-    global temp_all
-    global eda_all
-
     embrace_path = os.path.join(os.getcwd(), 'Data Collection', 'Embrace')
     embrace_dirs = os.listdir(embrace_path)
     embrace_csv_paths = list()
@@ -45,14 +39,16 @@ def main():
                                         str('%03d' % int(df.loc[i, 'SITE'])), str(df.loc[i, 'SUBJECT']),
                                         str(df.loc[i, 'DEVICE']))
                 if os.path.exists(csv_path):
-                    embrace_csv_paths.append(csv_path)      # collect all of csv paths
+                    embrace_csv_paths.append(csv_path)  # collect all of csv paths
         else:
             print("There is no record in the folder %s", emdir)
 
     # print(embrace_csv_paths)
     # combine all of temp and all of eda
+    person_info_dict = get_date_from_garmin()
     temp_all, eda_all = timestamp2datetime(embrace_csv_paths)
-    collect_each_person()
+    collect_each_person(person_info_dict, temp_all, 'skin_temp')
+    collect_each_person(person_info_dict, eda_all, 'eda')
 
 
 def timestamp2datetime(paths):
@@ -91,7 +87,7 @@ def get_date_from_garmin():
     path = os.path.join(os.getcwd(), 'garmin')
     garmin_csv = os.listdir(path)
 
-    # person_info includes person id and its start date and end date of garmin records
+    # person_info includes person id and its date and start time and end time of garmin records
     # e.g. person_info = {'23': ['2020-12-12 14:04:00', '2020-12-12 14:50:00'], '22': ['2020-12-12 13:16:00', '2020-12-12 13:58:00']...}
     person_info = dict()
     for file in garmin_csv:
@@ -106,13 +102,40 @@ def get_date_from_garmin():
     return person_info
 
 
-def collect_each_person():
-    pass
-    # get timestamp_16 time
+def collect_each_person(personInfo, embrace_df, kind):
+    # already obtained temp and eda dataframes and date/time of each person
+    for id, dati in personInfo.items():
 
-    # compare garmin and embrace
+        time, skin_values = [], []
+        person = dict()
+        date, test_start_time = dati[0].split(' ')[0], dati[0].split(' ')[1]
+
+        # convert string "end of date/time" to datetime format (in order to add one minute to end time)
+        end_date_time_obj = datetime.strptime(dati[1], '%Y-%m-%d %H:%M:%S') + timedelta(minutes=1)
+
+        # convert datetime format to string "end of date/time"
+        test_end_time = str(end_date_time_obj).split(' ')[1]
+
+        # Compare date and time between embrace and garmin
+        for i in range(len(embrace_df['time'])):
+            if str(embrace_df['time'][i]).split(' ')[0] == date:
+                if test_start_time <= str(embrace_df['time'][i]).split(' ')[1] < test_end_time:
+                    time.append(embrace_df['time'][i])
+                    skin_values.append(embrace_df[kind][i])
+        person['time'] = time
+        person[kind] = skin_values
+        person_df = pd.DataFrame.from_dict(person)
+
+        if kind == 'skin_temp':
+            writeEmbrace_name = id + '_temp.csv'
+        elif kind == 'eda':
+            writeEmbrace_name = id + '_eda.csv'
+
+        writeEmbrace_dir = os.path.join(os.getcwd(), 'embrace')  # need to create "garmin" folder before running the code
+        writeEmbrace_path = os.path.join(writeEmbrace_dir, writeEmbrace_name)
+        person_df.to_csv(writeEmbrace_path, index=False)
+        print("Finish %s person" % writeEmbrace_name)
 
 
 if __name__ == '__main__':
     main()
-    get_date_from_garmin()

@@ -1,8 +1,8 @@
 # Step1 : Delete all .DS_store iteratively for each subfolder: https://jonbellah.com/articles/recursively-remove-ds-store/
 # find . -name '.DS_Store' -type f -delete
-# FitSDK: e
+# FitSDK: java -jar ./java/FitCSVTool.jar 74185739562_WELLNESS.fit
 
-#!/usr/bin/python
+# !/usr/bin/python
 # -*- coding: utf-8 -*-
 import os
 import fitparse
@@ -13,30 +13,29 @@ import csv
 import pandas as pd
 
 folders = ['01-09-TR1', '10-20-TR2', '21-30-TR3']
-# folders = ['01-09-TR1']
 person = dict()
 
 OUTPUT_TIMEZONE = pytz.timezone('US/Pacific')
 INPUT_TIMEZONE = pytz.UTC
 
 allowed_fields = ['timestamp_16', 'heart_rate']
-required_fields = ['timestamp_16','heart_rate']
+required_fields = ['timestamp_16', 'heart_rate']
+
 
 def main():
-
     for folder in folders:
         # returns a list containing the names of the entries in the directory given by path
         path = os.path.join(os.getcwd(), 'Data Collection', folder)
-        person_dirs = os.listdir(path)                                     # dirs --> ['04-112520-245pm-JJ Kim']
+        person_dirs = os.listdir(path)  # dirs --> ['04-112520-245pm-JJ Kim']
 
         for psdir in person_dirs:
             person = dict()
-            person[psdir.split('-')[-1]] = psdir.split('-')[0:3]           # print person --> {'Hannah Flynn': ['08', '112720', '124pm']}
+            person[psdir.split('-')[-1]] = psdir.split('-')[0:3]  # print person --> {'Hannah Flynn': ['08', '112720', '124pm']}
 
             # Obtain .fit files
-            garmincon_path = os.path.join(path, psdir, "Garmin Connect")   # garmincon_path --> ./Garmin Connect
-            dirs = os.listdir(garmincon_path)                              # print dirs_temp --> ['2020-11-27-124pm']
-            garmin_folder_path = os.path.join(garmincon_path, dirs[0])     # only one dir in dirs --> dirs[0]
+            garmincon_path = os.path.join(path, psdir, "Garmin Connect")  # garmincon_path --> ./Garmin Connect
+            dirs = os.listdir(garmincon_path)  # print dirs_temp --> ['2020-11-27-124pm']
+            garmin_folder_path = os.path.join(garmincon_path, dirs[0])  # only one dir in dirs --> dirs[0]
             fitfiles = os.listdir(garmin_folder_path)
             fitfiles_wellness = [file for file in fitfiles if file[-13:].lower() == '_wellness.fit']
 
@@ -50,14 +49,13 @@ def main():
                 write_fitfile_to_csv(fitfile, garmin_folder_path, csv_filename)
             print('finished conversions')
 
-            integrate_to_person(person, garmin_folder_path)
-
+            collect_person(person, garmin_folder_path)
 
 
 def write_fitfile_to_csv(fitfile, output_folder, output_file):
     messages = fitfile.messages
 
-    #messages[0].fields[1] --> time_created: 2020-11-27 08:00:00
+    # messages[0].fields[1] --> time_created: 2020-11-27 08:00:00
     if messages[0].fields[1].name != 'time_created':
         print('wrong input')
         sys.exit(1)
@@ -78,9 +76,9 @@ def write_fitfile_to_csv(fitfile, output_folder, output_file):
         # make sure fields only two elements(count=2): timestamp_16 and heart_rate
         for f in fields:
             if f.name == 'timestamp_16':
-                count+=1
+                count += 1
             if f.name == 'heart_rate':
-                count+=1
+                count += 1
 
         if count == 2:
             for field in fields:
@@ -96,7 +94,6 @@ def write_fitfile_to_csv(fitfile, output_folder, output_file):
                         mdata[field.name] = t_utc
                     elif field.name == 'heart_rate':
                         mdata[field.name] = field.value
-
 
             for rf in required_fields:
                 if rf in mdata:
@@ -114,7 +111,7 @@ def write_fitfile_to_csv(fitfile, output_folder, output_file):
             writer.writerow([str(entry.get(k, '')) for k in allowed_fields])
 
 
-def integrate_to_person(personRecord, csvdirName):
+def collect_person(personRecord, csvdirName):
     li = []
     if not os.path.exists(csvdirName):
         print('Error: Cannot find %s' % csvdirName)
@@ -146,12 +143,11 @@ def integrate_to_person(personRecord, csvdirName):
         print(person_df)
 
         writeGarmin_name = values[0][0] + '.csv'
-        writeGarmin_dir = os.path.join(os.getcwd(), 'garmin')      # need to create "garmin" folder before running the code
+        writeGarmin_dir = os.path.join(os.getcwd(), 'garmin')  # need to create "garmin" folder before running the code
 
         writeGarmin_path = os.path.join(writeGarmin_dir, writeGarmin_name)
         person_df.to_csv(writeGarmin_path, index=False)
 
 
-if __name__=='__main__':
+if __name__ == '__main__':
     main()
-
