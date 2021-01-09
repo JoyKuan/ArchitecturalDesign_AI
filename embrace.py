@@ -1,5 +1,5 @@
 # Check first: name of Embrace folder has space which should be deleted by hand
-
+# temp_df.time = temp_df.time.map(lambda ts: pytz.timezone(originalTimeZone).localize(datetime.utcfromtimestamp(ts / 1000)).astimezone(pytz.timezone(targetTimeZone)))
 import os
 import pandas as pd
 from datetime import datetime, timedelta
@@ -52,12 +52,12 @@ def main():
     # combine all of temp and all of eda
     person_info_dict = get_date_from_garmin()
     temp_all, eda_all = timestamp2datetime(embrace_csv_paths)
-    collect_each_person(person_info_dict, temp_all, 'skin_temp')
+    collect_each_person(person_info_dict, temp_all, 'temp')
     collect_each_person(person_info_dict, eda_all, 'eda')
 
 
 def timestamp2datetime(paths):
-    temp_df = pd.DataFrame(columns=['time', 'skin_temp'])
+    temp_df = pd.DataFrame(columns=['time', 'temp'])
     eda_df = pd.DataFrame(columns=['time', 'eda'])
 
     for path in paths:
@@ -68,7 +68,7 @@ def timestamp2datetime(paths):
                 temp_path = os.path.join(path, f)
                 df = pd.read_csv(temp_path)
                 # change column names
-                df.columns = ['time', 'skin_temp']
+                df.columns = ['time', 'temp']
                 # UTC timestamp -> formatted LA time
                 df.time = df.time.map(lambda ts: datetime.fromtimestamp(ts * 1e-3))
                 temp_df = temp_df.append(df, ignore_index=True)
@@ -132,17 +132,60 @@ def collect_each_person(personInfo, embrace_df, kind):
         person[kind] = skin_values
         person_df = pd.DataFrame.from_dict(person)
 
+        writeEmbrace_dir = os.path.join(os.getcwd(), 'embrace_temp')  # need to create "garmin" folder before running the code
         # write temp and eda csv files
-        if kind == 'skin_temp':
+        if kind == 'temp':
             writeEmbrace_name = id + '_temp.csv'
+            writeEmbrace_path = os.path.join(writeEmbrace_dir, writeEmbrace_name)
+            person_df.to_csv(writeEmbrace_path, index=False)
+            print("Finish %s person" % writeEmbrace_name)
         elif kind == 'eda':
             writeEmbrace_name = id + '_eda.csv'
+            writeEmbrace_path = os.path.join(writeEmbrace_dir, writeEmbrace_name)
+            person_df.to_csv(writeEmbrace_path, index=False)
+            print("Finish %s person" % writeEmbrace_name)
 
-        writeEmbrace_dir = os.path.join(os.getcwd(), 'embrace')  # need to create "garmin" folder before running the code
-        writeEmbrace_path = os.path.join(writeEmbrace_dir, writeEmbrace_name)
-        person_df.to_csv(writeEmbrace_path, index=False)
-        print("Finish %s person" % writeEmbrace_name)
+
+def second2minute():
+    csv_path = os.path.join(os.getcwd(), 'embrace_temp')
+    csv_files = os.listdir(csv_path)
+
+    for file in csv_files:
+        dic = dict()
+        datetimeOfkind, valuesOfkind = [], []
+        i = 0
+        kind = file.split('_')[1].split('.')[0]       # kind: eda or temp
+        df = pd.read_csv(os.path.join(csv_path, file))
+
+        while i < len(df['time']):
+            sum_ = 0
+            count = 0
+            time = datetime.strptime(str(df['time'][i]).split('.')[0], '%Y-%m-%d %H:%M:%S')
+            current_time = datetime.strptime(df['time'][i], '%Y-%m-%d %H:%M:%S.%f')
+            next_time = current_time + timedelta(minutes=1)
+            next_time = datetime.strptime(str(next_time).split('.')[0], '%Y-%m-%d %H:%M:%S')
+            while current_time < next_time:
+                sum_ += df[kind][i]
+                i += 1
+                count += 1
+
+                if i < len(df['time']):
+                    current_time = datetime.strptime(df['time'][i], '%Y-%m-%d %H:%M:%S.%f')
+                elif i >= len(df['time']):
+                    break
+            # print('file:', file, 'i:', i, 'count:', count, 'sum:', sum)
+            valuesOfkind.append(float(sum_ / count))
+            datetimeOfkind.append(time)
+
+        dic['time'] = datetimeOfkind
+        dic[kind] = valuesOfkind
+        dic_df = pd.DataFrame.from_dict(dic)
+        print(dic_df)
+        write_path = os.path.join(os.getcwd(), 'embrace', file)
+        dic_df.to_csv(write_path, index=False)
+        print("Finish %s convert to minutes" % file)
 
 
 if __name__ == '__main__':
     main()
+    second2minute()
