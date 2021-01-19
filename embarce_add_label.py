@@ -36,7 +36,9 @@ def add_label(data_df, laps_data_df, begin_time, current_date, fea):
 
 for file in files:
     print('file name: ', file)
-    col_name = file[3:6]
+    temp_ = file.split('_')
+    col_name = temp_[1].split('.')[0]
+
     readfile_path = os.path.join(file_path, file)
     df = pd.read_csv(readfile_path)
 
