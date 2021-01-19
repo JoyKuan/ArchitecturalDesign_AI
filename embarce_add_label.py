@@ -8,8 +8,13 @@ files = os.listdir(file_path)
 
 def add_label(data_df, laps_data_df, begin_time, current_date, fea):
     combine = list()
+    count = 0
 
     for i in range(len(laps_data_df)-1, -1, -1):
+
+        # total is 50
+        if count == 50:
+            break
 
         lap_num = laps_data_df.iloc[i]['laps'].split(' ')[1]
         using_time = datetime.strptime(laps_data_df.iloc[i]['using_time'], '%H:%M:%S.%f').time()
@@ -29,6 +34,7 @@ def add_label(data_df, laps_data_df, begin_time, current_date, fea):
                 delta_current_time = datetime.combine(date.min, current_time) - datetime.min
                 begin_time = delta_current_time
                 break
+        count += 1
 
     person_df = pd.DataFrame(combine, columns=[fea, 'label'])
     return person_df
