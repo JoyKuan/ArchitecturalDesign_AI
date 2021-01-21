@@ -19,8 +19,8 @@ person = dict()
 OUTPUT_TIMEZONE = pytz.timezone('US/Pacific')
 INPUT_TIMEZONE = pytz.UTC
 
-allowed_fields = ['timestamp_16', 'heart_rate']
-required_fields = ['timestamp_16', 'heart_rate']
+allowed_fields = ['timestamp_16', 'heart_rate', 'stress_level_time', 'stress_level_value']
+required_fields = ['timestamp_16', 'heart_rate', 'stress_level_time', 'stress_level_value']
 
 
 def main():
@@ -73,14 +73,33 @@ def write_fitfile_to_csv(fitfile, output_folder, output_file):
         fields = m.fields
         mdata = dict()
 
-        # e.g. [<FieldData: timestamp_16: 30584 [s], def num: 26, type: uint16 (uint16), raw value: 30584>, <FieldData: heart_rate: 0 [bpm], def num: 27, type: uint8 (uint8), raw value: 0>]
-        # make sure fields only two elements(count=2): timestamp_16 and heart_rate
+        '''
+        one message:
+        [<DataMessage: file_id (#0) -- local mesg: #0,
+        fields: [serial_number: 3953386591, time_created: 2020-11-24 00:10:00, manufacturer: garmin, garmin_product: 2622, number: 168, unknown_6: None, type: monitoring_b]>, 
+
+        m.fields:
+        fields: [serial_number: 3953386591, time_created: 2020-11-24 00:10:00, manufacturer: garmin, garmin_product: 2622, number: 168, unknown_6: None, type: monitoring_b]>
+        
+        it is not enough to use "f.name == 'timestamp_16'" because you will meet:
+        <DataMessage: monitoring (#55) -- local mesg: #6, fields: [cycles: 0.0, active_time: 60.0, active_calories: 1, timestamp_16: 64752, activity_type: generic, intensity: 2, current_activity_type_intensity: (64,)]>,
+        this message also has 'timestamp_16'. But we don't need this timestamp_16
+        Hence, make sure fields only two elements(count=2): timestamp_16 and heart_rate
+        '''
+
         for f in fields:
             if f.name == 'timestamp_16':
                 count += 1
             if f.name == 'heart_rate':
                 count += 1
+            if f.name == 'stress_level_time':
+                timestamp_stress = (f.value - datetime.datetime(1989, 12, 31, 0, 0)).total_seconds()
+                t_utc_stress = datetime.datetime.fromtimestamp(631065600 + timestamp_stress)
+                mdata[f.name] = t_utc_stress
+            if f.name == 'stress_level_value':
+                mdata[f.name] = f.value
 
+        # handle with heart rate data
         if count == 2:
             for field in fields:
                 if field.name in allowed_fields:
@@ -97,12 +116,12 @@ def write_fitfile_to_csv(fitfile, output_folder, output_file):
                     elif field.name == 'heart_rate':
                         mdata[field.name] = field.value
 
-            for rf in required_fields:
-                if rf in mdata:
-                    skip = False
-                    break
-            if not skip:
-                data.append(mdata)
+        for rf in required_fields:
+            if rf in mdata:
+                skip = False
+                break
+        if not skip:
+            data.append(mdata)
 
     # write to csv
     writeFile = os.path.join(output_folder, output_file)
@@ -118,9 +137,8 @@ def collect_person(personRecord, csvdirName):
     if not os.path.exists(csvdirName):
         print('Error: Cannot find %s' % csvdirName)
     else:
-        ts16 = list()
-        heart = list()
-        dic = dict()
+        ts16, stress_ts16, heart, stress = [], [], [], []
+        dic_heart, dic_stress = {}, {}
 
         files = os.listdir(csvdirName)
         for file in files:
@@ -128,27 +146,47 @@ def collect_person(personRecord, csvdirName):
                 df = pd.read_csv(csvdirName + '/' + file)
                 li.append(df)
         frame = pd.concat(li, axis=0, ignore_index=True)
-        frame.sort_values('timestamp_16', inplace=True, ignore_index=True)
-        values = list(personRecord.values())
 
+        heartrate_df = pd.DataFrame(frame, columns=["timestamp_16", "heart_rate"])
+        stress_df = pd.DataFrame(frame, columns=["stress_level_time", "stress_level_value"])
+
+        heartrate_df.sort_values('timestamp_16', inplace=True, ignore_index=True)
+        stress_df.sort_values('stress_level_time', inplace=True, ignore_index=True)
+
+        heartrate_df = heartrate_df.dropna(axis=0, how='any')
+        stress_df = stress_df.dropna(axis=0, how='any')
+
+        values = list(personRecord.values())
         time = values[0][2][0:2] + ':' + values[0][2][2:] + ':00'
 
-        for i in range(len(frame['timestamp_16'])):
-            if frame['timestamp_16'][i].split(' ')[1] >= time:
-                ts16.append(frame['timestamp_16'][i])
-                heart.append(frame['heart_rate'][i])
+        for i in range(len(heartrate_df['timestamp_16'])):
+            if heartrate_df['timestamp_16'][i].split(' ')[1] >= time:
+                ts16.append(heartrate_df['timestamp_16'][i])
+                heart.append(heartrate_df['heart_rate'][i])
 
-        dic['timestamp_16'] = ts16
-        dic['heart_rate'] = heart
+        for j in range(len(stress_df['stress_level_time'])):
+            if stress_df['stress_level_time'][j].split(' ')[1] >= time:
+                stress_ts16.append(stress_df['stress_level_time'][j])
+                stress.append(stress_df['stress_level_value'][j])
 
-        person_df = pd.DataFrame.from_dict(dic)
-        print(person_df)
+        dic_heart['timestamp_16'] = ts16
+        dic_heart['heart_rate'] = heart
+        dic_stress['stress_level_time'] = stress_ts16
+        dic_stress['stress_level_value'] = stress
+
+        heart_person_df = pd.DataFrame.from_dict(dic_heart)
+        stress_person_df = pd.DataFrame.from_dict(dic_stress)
 
         writeGarmin_name = values[0][0] + '.csv'
-        writeGarmin_dir = os.path.join(os.getcwd(), 'garmin')  # need to create "garmin" folder before running the code
+
+        writeGarmin_dir = os.path.join(os.getcwd(), 'garmin', 'heart_rate')  # need to create "garmin" folder before running the code
+        writeGarmin_stress_dir = os.path.join(os.getcwd(), 'garmin', 'stress')
 
         writeGarmin_path = os.path.join(writeGarmin_dir, writeGarmin_name)
-        person_df.to_csv(writeGarmin_path, index=False)
+        writeGarmin_stress_path = os.path.join(writeGarmin_stress_dir, writeGarmin_name)
+
+        heart_person_df.to_csv(writeGarmin_path, index=False)
+        stress_person_df.to_csv(writeGarmin_stress_path, index=False)
 
 
 if __name__ == '__main__':
