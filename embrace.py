@@ -5,8 +5,8 @@ import pandas as pd
 from datetime import datetime, timedelta
 
 # LA Time Zone
-originalTimeZone = "UTC"
-targetTimeZone = "America/Los_Angeles"
+# originalTimeZone = "UTC"
+# targetTimeZone = "America/Los_Angeles"
 
 
 def main():
@@ -89,7 +89,7 @@ def timestamp2datetime(paths):
 
 def get_date_from_garmin():
     # get date of each person from garmin files
-    path = os.path.join(os.getcwd(), 'garmin')
+    path = os.path.join(os.getcwd(), 'garmin', 'heart_rate')
     garmin_csv = os.listdir(path)
 
     # person_info includes person id and its date and start time and end time of garmin records
