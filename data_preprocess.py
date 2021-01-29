@@ -20,6 +20,7 @@ for key, value in df.items():
     df[key].to_csv('final/person/%s.csv' %csvfilename, index=False)
 '''
 
+
 for person_id in range(1, 31):
     path = os.path.join(os.getcwd(), 'final', 'person')
     file_path = os.path.join(path, '%.2d.csv' % person_id)
@@ -28,3 +29,13 @@ for person_id in range(1, 31):
     df['heart_rate'] = df['heart_rate'].apply(lambda x: 75 if x == 0 or x < 50 else x)
     df['stress_level_value'] = df['stress_level_value'].apply(lambda x: 1 if x < 0 else x)
     df.to_csv('final/preprocessor_person/%.2d.csv' % person_id, index=False)
+
+
+# pre-process combine.csv
+path = os.path.join(os.getcwd(), 'final', 'person', 'combine.csv')
+df_combine = pd.read_csv(path)
+df_combine['heart_rate'] = df_combine['heart_rate'].apply(lambda y: 75 if y == 0 or y < 50 else y)
+df_combine['stress_level_value'] = df_combine['stress_level_value'].apply(lambda y: 1 if y < 0 else y)
+df_combine.to_csv('final/preprocessor_person/combine.csv', index=False)
+
+
